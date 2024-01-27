@@ -1,6 +1,6 @@
 {
   "name": "synced-store",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A synced store based Y.js. Just for tldraw now.",
   "main": "/dist/index.js",
   "files": [
