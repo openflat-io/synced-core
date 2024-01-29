@@ -19,6 +19,9 @@
     "y-utility"
   ],
   "author": "https://github.com/syt-honey",
+  "repository": {
+    "url": "https://github.com/openflat-io/synced-core"
+  },
   "license": "MIT",
   "devDependencies": {
     "@babel/preset-env": "^7.23.9",
