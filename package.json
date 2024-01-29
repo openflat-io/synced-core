@@ -1,8 +1,8 @@
 {
   "name": "synced-store",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A synced store based Y.js.",
-  "main": "./dist/index.js",
+  "main": "./dist/index.mjs",
   "files": [
     "dist",
     "README.md"

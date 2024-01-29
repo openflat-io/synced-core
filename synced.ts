@@ -4,6 +4,8 @@ import { WebsocketProvider } from "y-websocket";
 import { Storage } from "./storage";
 import { SyncedStorageState } from "./type";
 
+export * from "./storage";
+
 export class SyncedStorage {
     private doc: Y.Doc;
     private provider: WebsocketProvider;
