@@ -1,5 +1,7 @@
 import { jest, describe, beforeEach, expect, it } from "@jest/globals";
+
 import { SyncedStorage } from "../synced";
+import { Storage } from "../storage";
 
 jest.mock("y-websocket");
 jest.mock("yjs", () => {
@@ -26,10 +28,7 @@ jest.mock("yjs", () => {
             callbacks.forEach(cb =>
                 cb({
                     keysChanged: new Set([key]),
-                    transaction: {
-                        // Add any relevant transaction mock details here
-                    },
-                    // Add any other details needed to mimic the Y.YMapEvent
+                    transaction: {}
                 }),
             );
         }),
@@ -43,10 +42,8 @@ jest.mock("yjs", () => {
 
     return {
         Doc: jest.fn(() => ({
-            getMap: jest.fn(() => mockMap),
-            // Add any other methods you are using from Y.Doc
-        })),
-        // Mock any other Yjs classes or functions you are using
+            getMap: jest.fn(() => mockMap)
+        }))
     };
 });
 
@@ -57,25 +54,29 @@ interface ClassRoomState {
 }
 
 describe("SyncedStorage", () => {
-    let syncedStorage: SyncedStorage<ClassRoomState>;
+    let syncedStorage: SyncedStorage;
     const roomId = "testRoom";
     const initialState: ClassRoomState = {
         ban: false,
         raiseHand: [],
     };
-    const serverUrl = "wss://localhost:1234";
+    const serverUrl = "ws://localhost:1234";
+
+    let classRoomStore: Storage<ClassRoomState>;
 
     beforeEach(() => {
         jest.clearAllMocks();
-        syncedStorage = new SyncedStorage(roomId, initialState, serverUrl);
+        syncedStorage = new SyncedStorage(roomId, serverUrl);
     });
+
 
     it("should initialize correctly", () => {
         expect(syncedStorage).toBeDefined();
     });
 
     it("should initialize state correctly", () => {
-        expect(syncedStorage.getState()).toEqual(initialState);
+        classRoomStore = syncedStorage.connectStorage("classroom", initialState);
+        expect(classRoomStore.state).toEqual(initialState);
     });
 
     it("should update and get state correctly", () => {
@@ -84,34 +85,35 @@ describe("SyncedStorage", () => {
             ban: true,
         };
 
-        syncedStorage.setState({ ...changedState });
-        expect(syncedStorage.getState()).toMatchObject(changedState);
+        classRoomStore.setState({ ...changedState });
+        expect(classRoomStore.state).toMatchObject(changedState);
 
         // add new state
         const newState = {
             mute: true,
         };
 
-        syncedStorage.setState({ ...newState });
-        expect(syncedStorage.getState()).toMatchObject(newState);
+        classRoomStore.setState({ ...newState });
+        expect(classRoomStore.state).toMatchObject(newState);
 
         // delete state by state
-        syncedStorage.deleteState(newState);
-        expect(syncedStorage.getState()).not.toMatchObject(newState);
+        classRoomStore.deleteState(newState);
+        expect(classRoomStore.state).not.toMatchObject(newState);
 
         // delete state by key
-        syncedStorage.deleteState("ban");
-        expect(syncedStorage.getState()).not.toMatchObject(changedState);
+        classRoomStore.deleteState("ban");
+        expect(classRoomStore.state).not.toMatchObject(changedState);
     });
 
     it("should handle state changes", () => {
         const callback = jest.fn();
-        syncedStorage.onStateChanged(callback);
+        const disposer = classRoomStore.on("stateChanged", callback);
 
-        syncedStorage.setState({
+        classRoomStore.setState({
             raiseHand: ["user1", "user2"],
         });
 
         expect(callback).toHaveBeenCalled();
+        expect(typeof disposer).toBe('function')
     });
 });
