@@ -1,14 +1,15 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { YKeyValue } from "y-utility/y-keyvalue";
 export class SyncedStorage {
     constructor(roomId, initialState, serverUrl) {
-        var _a;
+        this.stateChangeListeners = [];
         this.doc = new Y.Doc();
         this.provider = new WebsocketProvider(serverUrl, roomId, this.doc);
-        const yArray = this.doc.getArray(`synced-${roomId}`);
-        this.state = new YKeyValue(yArray);
-        if (((_a = this.state.yarray) === null || _a === void 0 ? void 0 : _a.length) === 0) {
+        this.state = this.doc.getMap(`synced-${roomId}`);
+        this.state.observe((event) => {
+            this.handleStateChange(event);
+        });
+        if (this.state.size === 0) {
             this.initializeState(initialState);
         }
     }
@@ -16,87 +17,77 @@ export class SyncedStorage {
         return this.provider;
     }
     initializeState(initialState) {
-        Object.values(initialState).forEach(record => {
-            if (!this.state.has(record.id)) {
-                this.state.set(record.id, record);
+        Object.entries(initialState).forEach(([key, value]) => {
+            if (!this.state.has(key)) {
+                this.state.set(key, value);
             }
         });
     }
     getState() {
-        var _a;
-        return (_a = this.state.yarray) === null || _a === void 0 ? void 0 : _a.toJSON();
-    }
-    deleteState(newState) {
-        Object.values(newState).forEach(({ id }) => {
-            if (!id)
-                return;
-            this.state.delete(id);
+        const stateObj = {};
+        this.state.forEach((value, key) => {
+            if (value !== undefined) {
+                stateObj[key] = value;
+            }
         });
+        return stateObj;
     }
     setState(newState) {
-        Object.values(newState).forEach(record => {
-            if (record.id) {
-                this.state.set(record.id, record);
-            }
-            if (record.length > 0) {
-                record.forEach((item) => {
-                    this.state.set(item.id, item);
-                });
+        Object.entries(newState).forEach(([key, value]) => {
+            if (key) {
+                this.state.set(key, value);
             }
         });
     }
     onStateChanged(callback) {
-        this.state.on("change", (changes, transaction) => {
-            if (changes === null || changes === void 0 ? void 0 : changes.size) {
-                const diff = {
-                    toPut: [],
-                    toRemove: [],
-                };
-                changes.forEach((change, key) => {
-                    switch (change.action) {
-                        case "add":
-                        case "update": {
-                            const record = this.state.get(key);
-                            diff.toPut.push(record);
-                            break;
-                        }
-                        case "delete": {
-                            diff.toRemove.push(key);
-                            break;
-                        }
-                    }
-                });
-                callback(diff, transaction);
-            }
-        });
+        this.stateChangeListeners.push(callback);
     }
-    onStateOff(callback) {
-        this.state.off("change", (changes, transaction) => {
-            if (changes === null || changes === void 0 ? void 0 : changes.size) {
-                const diff = {
-                    toPut: [],
-                    toRemove: [],
-                };
-                changes.forEach((change, key) => {
-                    switch (change.action) {
-                        case "add":
-                        case "update": {
-                            const record = this.state.get(key);
-                            diff.toPut.push(record);
-                            break;
-                        }
-                        case "delete": {
-                            diff.toRemove.push(key);
-                            break;
-                        }
-                    }
-                });
-                callback(diff, transaction);
+    offStateChanged(callback) {
+        this.stateChangeListeners = this.stateChangeListeners.filter(listener => listener !== callback);
+    }
+    /**
+     * Delete the given key or given state from the synced storage
+     * @param given keyof T | Partial<T>
+     * @returns void
+     *
+     * @example1 by key
+     * state: { ban: false, id: "shape:xxxx"}
+     * given: "ban" => state: { id: "shape:xxxx" }
+     *
+     * @example2 by state
+     * state = { ban: false, id: "shape:xxxx" }
+     * given: { ban: true } => state: { id: "shape:xxxx" }
+     */
+    deleteState(given) {
+        if (typeof given === "string") {
+            if (!this.state.has(given)) {
+                return;
             }
-        });
+            this.state.delete(given);
+        }
+        else {
+            Object.keys(given).forEach(key => {
+                if (!this.state.has(key)) {
+                    return;
+                }
+                this.state.delete(key);
+            });
+        }
     }
     dispose() {
         this.provider.disconnect();
         this.doc.destroy();
+    }
+    handleStateChange(event) {
+        const diff = {};
+        event.keysChanged.forEach(key => {
+            const value = this.state.get(key);
+            if (value !== undefined) {
+                diff[key] = value;
+            }
+        });
+        this.stateChangeListeners.forEach(listener => {
+            listener(diff, event.transaction);
+        });
     }
 }

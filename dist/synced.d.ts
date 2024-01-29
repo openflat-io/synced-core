@@ -1,24 +1,32 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { YKeyValue } from "y-utility/y-keyvalue";
-export type SyncedStorageState = {
-    [key: string]: any;
-};
-export type SyncedStorageDiff<T> = {
-    toPut: T[];
-    toRemove: string[];
-};
+import { SyncedStorageState } from "./type";
 export declare class SyncedStorage<T extends SyncedStorageState> {
     doc: Y.Doc;
     provider: WebsocketProvider;
-    state: YKeyValue<T>;
+    state: Y.Map<T>;
+    private stateChangeListeners;
     constructor(roomId: string, initialState: T, serverUrl: string);
     get room(): WebsocketProvider;
     initializeState(initialState: T): void;
-    getState(): any[];
-    deleteState(newState: Partial<T>): void;
+    getState(): T;
     setState(newState: Partial<T>): void;
-    onStateChanged(callback: (diff: SyncedStorageDiff<T>, transaction: Y.Transaction) => void): void;
-    onStateOff(callback: (diff: SyncedStorageDiff<T>, transaction: Y.Transaction) => void): void;
+    onStateChanged(callback: (diff: Partial<T>, transaction: Y.Transaction) => void): void;
+    offStateChanged(callback: (diff: Partial<T>, transaction: Y.Transaction) => void): void;
+    /**
+     * Delete the given key or given state from the synced storage
+     * @param given keyof T | Partial<T>
+     * @returns void
+     *
+     * @example1 by key
+     * state: { ban: false, id: "shape:xxxx"}
+     * given: "ban" => state: { id: "shape:xxxx" }
+     *
+     * @example2 by state
+     * state = { ban: false, id: "shape:xxxx" }
+     * given: { ban: true } => state: { id: "shape:xxxx" }
+     */
+    deleteState(given: keyof T | Partial<T>): void;
     dispose(): void;
+    private handleStateChange;
 }
