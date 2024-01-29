@@ -1,28 +1,26 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { YKeyValue } from "y-utility/y-keyvalue";
 
-export type SyncedStorageState = {
-    [key: string]: any;
-};
-
-export type SyncedStorageDiff<T> = {
-    toPut: T[];
-    toRemove: string[];
-};
+import { SyncedStorageState } from "./type";
 
 export class SyncedStorage<T extends SyncedStorageState> {
     doc: Y.Doc;
     provider: WebsocketProvider;
-    state: YKeyValue<T>;
+    state: Y.Map<T>;
+
+    private stateChangeListeners: Array<(diff: Partial<T>, transaction: Y.Transaction) => void> =
+        [];
 
     constructor(roomId: string, initialState: T, serverUrl: string) {
         this.doc = new Y.Doc();
         this.provider = new WebsocketProvider(serverUrl, roomId, this.doc);
-        const yArray = this.doc.getArray<{ key: string; val: T }>(`synced-${roomId}`);
-        this.state = new YKeyValue(yArray);
+        this.state = this.doc.getMap(`synced-${roomId}`);
 
-        if (this.state.yarray?.length === 0) {
+        this.state.observe((event: Y.YMapEvent<T>) => {
+            this.handleStateChange(event);
+        });
+
+        if (this.state.size === 0) {
             this.initializeState(initialState);
         }
     }
@@ -32,114 +30,87 @@ export class SyncedStorage<T extends SyncedStorageState> {
     }
 
     initializeState(initialState: T) {
-        Object.values(initialState).forEach(record => {
-            if (!this.state.has(record.id)) {
-                this.state.set(record.id, record);
+        Object.entries(initialState).forEach(([key, value]) => {
+            if (!this.state.has(key)) {
+                this.state.set(key, value);
             }
         });
     }
 
-    getState(): any[] {
-        return this.state.yarray?.toJSON();
-    }
-
-    deleteState(newState: Partial<T>) {
-        Object.values(newState).forEach(({ id }) => {
-            if (!id) return;
-            this.state.delete(id);
+    getState(): T {
+        const stateObj: Partial<T> = {};
+        this.state.forEach((value, key) => {
+            if (value !== undefined) {
+                stateObj[key as keyof T] = value as T[keyof T];
+            }
         });
+        return stateObj as T;
     }
 
     setState(newState: Partial<T>) {
-        Object.values(newState).forEach(record => {
-            if (record.id) {
-                this.state.set(record.id, record);
-            }
-
-            if (record.length > 0) {
-                record.forEach((item: any) => {
-                    this.state.set(item.id, item);
-                });
+        Object.entries(newState).forEach(([key, value]) => {
+            if (key) {
+                this.state.set(key, value);
             }
         });
     }
 
-    onStateChanged(callback: (diff: SyncedStorageDiff<T>, transaction: Y.Transaction) => void) {
-        this.state.on(
-            "change",
-            (
-                changes: Map<
-                    string,
-                    | { action: "delete"; oldValue: T }
-                    | { action: "update"; oldValue: T; newValue: T }
-                    | { action: "add"; newValue: T }
-                >,
-                transaction: Y.Transaction,
-            ) => {
-                if (changes?.size) {
-                    const diff: SyncedStorageDiff<T> = {
-                        toPut: [],
-                        toRemove: [],
-                    };
-                    changes.forEach((change, key) => {
-                        switch (change.action) {
-                            case "add":
-                            case "update": {
-                                const record = this.state.get(key)!;
-                                diff.toPut.push(record);
-                                break;
-                            }
-                            case "delete": {
-                                diff.toRemove.push(key);
-                                break;
-                            }
-                        }
-                    });
-                    callback(diff, transaction);
-                }
-            },
+    onStateChanged(callback: (diff: Partial<T>, transaction: Y.Transaction) => void) {
+        this.stateChangeListeners.push(callback);
+    }
+
+    offStateChanged(callback: (diff: Partial<T>, transaction: Y.Transaction) => void) {
+        this.stateChangeListeners = this.stateChangeListeners.filter(
+            listener => listener !== callback,
         );
     }
 
-    onStateOff(callback: (diff: SyncedStorageDiff<T>, transaction: Y.Transaction) => void) {
-        this.state.off(
-            "change",
-            (
-                changes: Map<
-                    string,
-                    | { action: "delete"; oldValue: T }
-                    | { action: "update"; oldValue: T; newValue: T }
-                    | { action: "add"; newValue: T }
-                >,
-                transaction: Y.Transaction,
-            ) => {
-                if (changes?.size) {
-                    const diff: SyncedStorageDiff<T> = {
-                        toPut: [],
-                        toRemove: [],
-                    };
-                    changes.forEach((change, key) => {
-                        switch (change.action) {
-                            case "add":
-                            case "update": {
-                                const record = this.state.get(key)!;
-                                diff.toPut.push(record);
-                                break;
-                            }
-                            case "delete": {
-                                diff.toRemove.push(key);
-                                break;
-                            }
-                        }
-                    });
-                    callback(diff, transaction);
+    /**
+     * Delete the given key or given state from the synced storage
+     * @param given keyof T | Partial<T>
+     * @returns void
+     *
+     * @example1 by key
+     * state: { ban: false, id: "shape:xxxx"}
+     * given: "ban" => state: { id: "shape:xxxx" }
+     *
+     * @example2 by state
+     * state = { ban: false, id: "shape:xxxx" }
+     * given: { ban: true } => state: { id: "shape:xxxx" }
+     */
+    deleteState(given: keyof T | Partial<T>) {
+        if (typeof given === "string") {
+            if (!this.state.has(given)) {
+                return;
+            }
+            this.state.delete(given as string);
+        } else {
+            Object.keys(given).forEach(key => {
+                if (!this.state.has(key)) {
+                    return;
                 }
-            },
-        );
+                this.state.delete(key);
+            });
+        }
     }
 
     dispose() {
         this.provider.disconnect();
         this.doc.destroy();
+    }
+
+    private handleStateChange(event: Y.YMapEvent<T>) {
+        const diff: Partial<T> = {};
+
+        event.keysChanged.forEach(key => {
+            const value = this.state.get(key);
+            if (value !== undefined) {
+                diff[key as keyof T] = value as T[keyof T];
+            }
+        });
+
+        this.stateChangeListeners.forEach(listener => {
+            listener(diff, event.transaction);
+        });
     }
 }
