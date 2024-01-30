@@ -9,11 +9,24 @@ export type SyncedStorageDiff<T> = {
     toRemove: string[];
 };
 
+/**
+ * The TlDrawSyncedStorage class manages synchronized storage for drawing states
+ * using Y.js and y-websocket.
+ * 
+ * @template T Type parameter extending from SyncedStorageState, represents the state structure.
+ */
 export class TlDrawSyncedStorage<T extends SyncedStorageState> {
     doc: Y.Doc;
     provider: WebsocketProvider;
     state: YKeyValue<T>;
 
+    /**
+     * Constructs an instance of TlDrawSyncedStorage.
+     * 
+     * @param roomId The identifier for the room, used for data segregation.
+     * @param initialState The initial state to populate the storage with.
+     * @param serverUrl The URL of the WebSocket server.
+     */
     constructor(roomId: string, initialState: T, serverUrl: string) {
         this.doc = new Y.Doc();
         this.provider = new WebsocketProvider(serverUrl, roomId, this.doc);
@@ -25,10 +38,20 @@ export class TlDrawSyncedStorage<T extends SyncedStorageState> {
         }
     }
 
+    /**
+     * Gets the WebSocket provider associated with this storage.
+     * 
+     * @returns The WebsocketProvider instance.
+     */
     get room(): WebsocketProvider {
         return this.provider;
     }
 
+    /**
+     * Initializes the storage with the provided initial state.
+     * 
+     * @param initialState The initial state to set.
+     */
     initializeState(initialState: T) {
         Object.values(initialState).forEach(record => {
             if (!this.state.has(record.id)) {
@@ -37,10 +60,20 @@ export class TlDrawSyncedStorage<T extends SyncedStorageState> {
         });
     }
 
+    /**
+     * Retrieves the current state as an array.
+     * 
+     * @returns An array representing the current state.
+     */
     getState(): any[] {
         return this.state.yarray?.toJSON();
     }
 
+    /**
+     * Deletes parts of the state based on the provided newState object.
+     * 
+     * @param newState The state changes to apply, specifying the keys to delete.
+     */
     deleteState(newState: Partial<T>) {
         Object.values(newState).forEach(({ id }) => {
             if (!id) return;
@@ -48,6 +81,11 @@ export class TlDrawSyncedStorage<T extends SyncedStorageState> {
         });
     }
 
+    /**
+     * Sets the state based on the provided newState object.
+     * 
+     * @param newState The new state to apply.
+     */
     setState(newState: Partial<T>) {
         Object.values(newState).forEach(record => {
             if (record.id) {
@@ -62,6 +100,11 @@ export class TlDrawSyncedStorage<T extends SyncedStorageState> {
         });
     }
 
+    /**
+     * Registers a callback to be called when the state changes.
+     * 
+     * @param callback The function to be called with the changes and transaction when the state changes.
+     */
     onStateChanged(callback: (diff: SyncedStorageDiff<T>, transaction: Y.Transaction) => void) {
         this.state.on(
             "change",
@@ -99,6 +142,11 @@ export class TlDrawSyncedStorage<T extends SyncedStorageState> {
         );
     }
 
+    /**
+     * Unregisters a callback from being called when the state changes.
+     * 
+     * @param callback The callback function to unregister.
+     */
     onStateOff(callback: (diff: SyncedStorageDiff<T>, transaction: Y.Transaction) => void) {
         this.state.off(
             "change",
@@ -136,6 +184,9 @@ export class TlDrawSyncedStorage<T extends SyncedStorageState> {
         );
     }
 
+    /**
+     * Disconnects and disposes of the resources used by this TlDrawSyncedStorage instance.
+     */
     dispose() {
         this.provider.disconnect();
         this.doc.destroy();
