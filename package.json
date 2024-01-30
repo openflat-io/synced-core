@@ -9,7 +9,7 @@
     "README.md"
   ],
   "scripts": {
-    "doc": "typedoc --out ./docs index.ts",
+    "docs": "typedoc --out ./docs index.ts",
     "prebuild": "node ./scripts/clean.js",
     "build": "tsup",
     "test": "jest --coverage"
