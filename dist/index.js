@@ -38,18 +38,21 @@ var Storage = class {
    *
    * @param doc - The Y.Doc instance for state synchronization.
    * @param roomId - The identifier for the room, used in state syncing.
+   * @param storageId - The identifier for the storage, used in state syncing.
    * @param initialState - The initial state of the storage.
    */
-  constructor(doc, roomId, initialState) {
+  constructor(doc, roomId, storageId, initialState) {
     this.doc = doc;
     this.roomId = roomId;
+    this.storageId = storageId;
+    this.initialState = initialState;
     this.listeners = {};
-    this._state = this.doc.getMap(`synced-${this.roomId}`);
+    this._state = this.doc.getMap(`synced-${this.roomId}-${this.storageId}`);
     this._state.observe((event) => {
       this.handleStateChange(event);
     });
     if (this._state.size === 0) {
-      this.initializeState(initialState);
+      this.initializeState(this.initialState);
     }
   }
   /**
@@ -95,6 +98,13 @@ var Storage = class {
         this._state.set(key, value);
       }
     });
+  }
+  /**
+   * Resets the state to the initial state.
+   */
+  resetState() {
+    this._state.clear();
+    this.initializeState(this.initialState);
   }
   /**
    * Deletes a given key or state from the synced storage.
@@ -205,7 +215,7 @@ var SyncedStorage = class {
   connectStorage(storageId, initialState) {
     let storage = this.storage.get(storageId);
     if (!storage) {
-      storage = new Storage(this.doc, this.roomId, initialState);
+      storage = new Storage(this.doc, this.roomId, storageId, initialState);
       this.storage.set(storageId, storage);
     }
     return storage;

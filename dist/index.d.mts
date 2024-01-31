@@ -17,6 +17,8 @@ declare enum Events {
 declare class Storage<T extends SyncedStorageState> {
     private doc;
     private roomId;
+    private storageId;
+    private initialState;
     private _state;
     private listeners;
     /**
@@ -25,9 +27,10 @@ declare class Storage<T extends SyncedStorageState> {
      *
      * @param doc - The Y.Doc instance for state synchronization.
      * @param roomId - The identifier for the room, used in state syncing.
+     * @param storageId - The identifier for the storage, used in state syncing.
      * @param initialState - The initial state of the storage.
      */
-    constructor(doc: Y.Doc, roomId: string, initialState: T);
+    constructor(doc: Y.Doc, roomId: string, storageId: string, initialState: T);
     /**
      * Gets the current state.
      */
@@ -50,6 +53,10 @@ declare class Storage<T extends SyncedStorageState> {
      * @param newState - A partial state object representing the new state.
      */
     setState(newState: Partial<T>): void;
+    /**
+     * Resets the state to the initial state.
+     */
+    resetState(): void;
     /**
      * Deletes a given key or state from the synced storage.
      *
