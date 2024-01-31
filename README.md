@@ -48,7 +48,7 @@ classroomStorage.resetState();
 console.log(classroomStorage.state); // { ban: false, raiseHandUsers: [] }
 ```
 
-> If you want to host in local, you can use `y-websocket`. More detail see this [test](https://github.com/openflat-io/tldraw-store/blob/6b10dfe69503f6d0d752fba3549d1cb8e31a0c18/package.json#L12)
+> If you want to host in local, you can use `y-websocket`. More information see this [test](https://github.com/openflat-io/tldraw-store/blob/6b10dfe69503f6d0d752fba3549d1cb8e31a0c18/package.json#L12)
 
 ## Usage in `tldraw`
 
