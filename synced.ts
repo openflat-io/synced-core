@@ -36,7 +36,7 @@ export class SyncedStorage {
     connectStorage<T extends SyncedStorageState>(storageId: string, initialState: T): Storage<T> {
         let storage = this.storage.get(storageId);
         if (!storage) {
-            storage = new Storage<T>(this.doc, this.roomId, initialState);
+            storage = new Storage<T>(this.doc, this.roomId, storageId, initialState);
             this.storage.set(storageId, storage);
         }
         return storage;

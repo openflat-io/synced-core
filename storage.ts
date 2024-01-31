@@ -20,17 +20,18 @@ export class Storage<T extends SyncedStorageState> {
      *
      * @param doc - The Y.Doc instance for state synchronization.
      * @param roomId - The identifier for the room, used in state syncing.
+     * @param storageId - The identifier for the storage, used in state syncing.
      * @param initialState - The initial state of the storage.
      */
-    constructor(private doc: Y.Doc, private roomId: string, initialState: T) {
-        this._state = this.doc.getMap(`synced-${this.roomId}`);
+    constructor(private doc: Y.Doc, private roomId: string, private storageId: string, private initialState: T) {
+        this._state = this.doc.getMap(`synced-${this.roomId}-${this.storageId}`);
 
         this._state.observe((event: Y.YMapEvent<T>) => {
             this.handleStateChange(event);
         });
 
         if (this._state.size === 0) {
-            this.initializeState(initialState);
+            this.initializeState(this.initialState);
         }
     }
 
@@ -80,6 +81,14 @@ export class Storage<T extends SyncedStorageState> {
                 this._state.set(key, value);
             }
         });
+    }
+
+    /**
+     * Resets the state to the initial state.
+     */
+    resetState() {
+        this._state.clear();
+        this.initializeState(this.initialState as T);
     }
 
     /**
