@@ -16,7 +16,6 @@ import { SyncedStorage, Storage } from "synced-store";
 type ClassroomStorageState = {
     ban: boolean;
     raiseHandUsers: string[];
-    shareScreen: boolean;
 };
 
 const roomUUID = "exampleRoom";
@@ -28,11 +27,10 @@ const syncedStorage = new SyncedStorage(roomUUID, hostUrl);
 const classroomStorage: Storage<ClassroomStorageState> =
     syncedStorage.connectStorage<ClassroomStorageState>("classroom", {
         ban: false,
-        raiseHandUsers: [],
-        shareScreen: false,
+        raiseHandUsers: []
     });
 
-console.log(classroomStorage.state); // { ban: false, raiseHand: [] }
+console.log(classroomStorage.state); // { ban: false, raiseHandUsers: [] }
 
 classroomStorage.setState({
     raiseHandUsers: ["user1", "user2"],
@@ -47,7 +45,7 @@ const disposer = classroomStorage.on("stateChanged", (diff: Partial<ClassroomSto
 
 classroomStorage.resetState();
 
-console.log(classroomStorage.state); // { ban: false, raiseHand: [] }
+console.log(classroomStorage.state); // { ban: false, raiseHandUsers: [] }
 ```
 
 > If you want to host in local, you can use `y-websocket`. More detail see this [test](https://github.com/openflat-io/tldraw-store/blob/6b10dfe69503f6d0d752fba3549d1cb8e31a0c18/package.json#L12)
